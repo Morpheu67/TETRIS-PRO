@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#130e2e">
+<title>Tetris Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Rubik+Mono+One&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2eeff;--panel:#fff;--tx:#241a52;--mut:#6b61a3;--frame:#3a2b7c;
+  --kb:#efeaff;--bd:#d9d0f5;--glow:#a66bff;--accent:#ff5368;--ok:#4fdc74;
+  --safe-top:env(safe-area-inset-top,0px);--safe-bot:env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f0b24;--panel:#1a1438;--tx:#f1edff;--mut:#a89fd8;--frame:#2a2158;
+  --kb:#251e4a;--bd:#352a70;--glow:#a66bff
+}}
+:root[data-theme="dark"]{
+  --bg:#0f0b24;--panel:#1a1438;--tx:#f1edff;--mut:#a89fd8;--frame:#2a2158;
+  --kb:#251e4a;--bd:#352a70
+}
+:root[data-theme="light"]{
+  --bg:#f2eeff;--panel:#fff;--tx:#241a52;--mut:#6b61a3;--frame:#3a2b7c;
+  --kb:#efeaff;--bd:#d9d0f5
+}
+html,body{height:100%;overflow:hidden}
+body{
+  min-height:100dvh;display:grid;place-items:center;
+  padding:max(12px,var(--safe-top)) 12px max(12px,var(--safe-bot));
+  background:var(--bg);color:var(--tx);
+  font:700 14px/1.4 Nunito,system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+}
+.app{
+  display:grid;
+  grid-template-columns:200px auto 200px;
+  grid-template-areas:"left board right" "left board hints";
+  grid-template-rows:auto 1fr;
+  gap:16px;align-items:start;max-width:920px;width:100%;
+}
+.left{grid-area:left}.boardwrap{grid-area:board}.right{grid-area:right}.hints{grid-area:hints}
+.touch{grid-area:touch;display:none}
+.panel{
+  background:var(--panel);border:2px solid var(--bd);
+  border-radius:18px;padding:14px 16px;
+  box-shadow:0 4px 24px rgba(36,26,82,.06);
+}
+h1{font:400 26px/1 "Rubik Mono One",Impact,sans-serif;margin-bottom:16px;letter-spacing:-1px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 8px}
+.stat b{display:block;font-size:22px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat.big{grid-column:1/-1}.stat.big b{font-size:28px}
+.stat small{display:block;font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.boardwrap{
+  position:relative;padding:7px;border-radius:20px;background:var(--frame);
+  box-shadow:0 0 0 3px var(--bd),0 0 48px -8px var(--glow);
+  transition:box-shadow .4s;
+}
+#b{display:block;height:min(68vh,640px);height:min(68dvh,640px);aspect-ratio:1/2;border-radius:12px;width:auto}
+.ov{
+  position:absolute;inset:7px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:20px;text-align:center;color:#f1edff;
+  background:rgba(10,8,28,.88);backdrop-filter:blur(8px);
+}
+.ov[hidden]{display:none}
+.ov h2{font:400 26px/1.15 "Rubik Mono One",Impact,sans-serif}
+.ov p{max-width:240px;color:#c9c0f2;font-size:14px;line-height:1.45}
+.ov .s{font-size:12px;color:#8f85c4;margin-top:4px}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px}
+button,.btn{
+  font:800 15px Nunito,system-ui,sans-serif;color:#fff;border:0;border-radius:12px;
+  padding:11px 22px;cursor:pointer;background:var(--accent);
+  box-shadow:0 4px 0 #b01e36;transition:transform .08s,box-shadow .08s;
+}
+button:active,.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #b01e36}
+button.secondary{background:#5584ff;box-shadow:0 4px 0 #2a4bb8}
+button.ghost{background:transparent;box-shadow:none;border:2px solid rgba(255,255,255,.25);color:#ddd}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#toast{
+  position:absolute;left:50%;top:32%;transform:translateX(-50%);
+  font:400 24px "Rubik Mono One",Impact,sans-serif;color:#fff;
+  white-space:nowrap;pointer-events:none;opacity:0;
+  text-shadow:0 3px 0 #b01e36,0 0 20px var(--glow);z-index:5;
+}
+#toast.pop{animation:pop .85s ease-out}
+@keyframes pop{
+  0%{opacity:0;transform:translate(-50%,12px) scale(.75)}
+  18%{opacity:1;transform:translate(-50%,0) scale(1.06)}
+  70%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-28px) scale(1)}
+}
+.mini canvas{display:block;margin:8px auto 0;width:100%;max-width:120px;aspect-ratio:1;border-radius:12px;background:#0e0a24}
+.hints ul{list-style:none;margin:8px 0 10px}
+.hints li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;font-size:13px}
+kbd{
+  display:inline-block;min-width:26px;text-align:center;
+  font:800 12px Nunito,system-ui,sans-serif;padding:2px 7px;margin-left:3px;
+  border-radius:7px;background:var(--kb);border:2px solid var(--bd);border-bottom-width:3px;
+}
+.tip{padding:10px 12px;border-radius:12px;background:var(--kb);font-size:13px}
+.tip b{display:block;color:var(--mut);font-size:11px;margin-bottom:2px}
+.prog{height:7px;border-radius:5px;background:var(--kb);overflow:hidden;margin-bottom:6px}
+.prog i{display:block;height:100%;width:0;border-radius:5px;background:var(--ok);transition:width .3s}
+.mode-tag{
+  display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;
+  border-radius:8px;background:var(--kb);color:var(--mut);margin-bottom:8px;
+}
+.hold-label,.next-label{font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
+.combo-badge{
+  position:absolute;top:14px;right:14px;background:rgba(255,83,104,.92);
+  color:#fff;font:800 13px Nunito;padding:4px 10px;border-radius:10px;
+  opacity:0;transform:scale(.8);transition:opacity .2s,transform .2s;z-index:4;
+}
+.combo-badge.show{opacity:1;transform:scale(1)}
+.touch{
+  grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:380px;justify-self:center;
+}
+.touch button{
+  padding:13px 0;font-size:18px;touch-action:manipulation;
+  background:#5584ff;box-shadow:0 4px 0 #2a4bb8;
+}
+.touch [data-a=cw],.touch [data-a=hd]{background:var(--accent);box-shadow:0 4px 0 #b01e36}
+.touch [data-a=hold],.touch [data-a=p]{background:#7a6fb8;box-shadow:0 4px 0 #4a3f85;font-size:14px}
+.menu-screen{
+  position:fixed;inset:0;background:rgba(10,8,28,.92);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+}
+.menu-screen[hidden]{display:none}
+.menu-card{
+  background:var(--panel);border:2px solid var(--bd);border-radius:22px;
+  padding:28px 24px;max-width:360px;width:100%;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+.menu-card h2{font:400 28px/1.1 "Rubik Mono One",Impact,sans-serif;margin-bottom:8px}
+.menu-card .sub{color:var(--mut);font-size:13px;margin-bottom:20px}
+.menu-card .modes{display:grid;gap:10px;margin-bottom:18px}
+.mode-btn{
+  display:flex;flex-direction:column;align-items:flex-start;text-align:left;
+  padding:14px 16px;border-radius:14px;background:var(--kb);border:2px solid var(--bd);
+  cursor:pointer;transition:border-color .15s,background .15s;
+}
+.mode-btn:hover,.mode-btn:focus{border-color:var(--glow);background:rgba(166,107,255,.12)}
+.mode-btn strong{font-size:16px;color:var(--tx)}
+.mode-btn span{font-size:12px;color:var(--mut);margin-top:2px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd)}
+.settings-row:last-child{border-bottom:0}
+.toggle{
+  width:44px;height:26px;border-radius:13px;background:#555;position:relative;
+  cursor:pointer;transition:background .2s;
+}
+.toggle.on{background:var(--ok)}
+.toggle::after{
+  content:'';position:absolute;width:20px;height:20px;border-radius:50%;
+  background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.toggle.on::after{left:21px}
+.ach-list{max-height:220px;overflow-y:auto;text-align:left;margin:12px 0}
+.ach-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.ach-item.locked{opacity:.45}
+.ach-icon{width:32px;height:32px;border-radius:8px;background:var(--kb);display:grid;place-items:center;font-size:16px;flex-shrink:0}
+.footer-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.small-btn{padding:8px 14px;font-size:13px;box-shadow:0 3px 0 #b01e36}
+.shake{animation:shake .28s ease-in-out}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-4px)}
+  40%{transform:translateX(4px)}
+  60%{transform:translateX(-3px)}
+  80%{transform:translateX(2px)}
+}
+@media(max-width:780px){
+  .app{
+    grid-template-columns:1fr auto;grid-template-areas:"left right" "board board" "touch touch";
+    grid-template-rows:auto;gap:10px;max-width:420px;
+  }
+  .boardwrap{justify-self:center}
+  #b{height:min(50vh,480px);height:min(50dvh,480px)}
+  h1,.hints{display:none}
+  .touch{display:grid}
+  .panel{padding:10px 12px}
+  .stat b,.stat.big b{font-size:18px}
+  .mini canvas{max-width:72px}
+  .left .stats{gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  #toast{display:none}.boardwrap{transition:none}.shake{animation:none}
+}
+</style>
+</head>
+<body>
+<main class="app" id="app">
+  <section class="left panel">
+    <h1 id="logo" aria-label="Tetris Pro"></h1>
+    <div class="mode-tag" id="modeTag">Clássico</div>
+    <div class="stats">
+      <div class="stat big"><small>Pontuação</small><b id="sc">0</b></div>
+      <div class="stat big"><small>Recorde</small><b id="bs">0</b></div>
+      <div class="stat"><small>Nível</small><b id="lv">1</b></div>
+      <div class="stat"><small>Linhas</small><b id="ln">0</b></div>
+      <div class="stat big" id="progWrap">
+        <div class="prog"><i id="pg"></i></div>
+        <small id="pl"></small>
+      </div>
+    </div>
+  </section>
+
+  <div class="boardwrap" id="bw">
+    <canvas id="b" aria-label="Tabuleiro do Tetris"></canvas>
+    <div id="toast"></div>
+    <div class="combo-badge" id="comboBadge"></div>
+    <div class="ov" id="ov" hidden></div>
+  </div>
+
+  <section class="right panel">
+    <div class="hold-label">Segurar</div>
+    <div class="mini"><canvas id="h" width="120" height="120"></canvas></div>
+    <div class="next-label" style="margin-top:14px">Próxima</div>
+    <div class="mini"><canvas id="n" width="120" height="120"></canvas></div>
+  </section>
+
+  <section class="hints panel">
+    <small style="font-size:11px;font-weight:800;color:var(--mut);text-transform:uppercase">Controles</small>
+    <ul>
+      <li><span>Mover</span><span><kbd>←</kbd><kbd>→</kbd></span></li>
+      <li><span>Girar</span><span><kbd>↑</kbd><kbd>X</kbd></span></li>
+      <li><span>Girar anti</span><kbd>Z</kbd></li>
+      <li><span>Segurar</span><kbd>C</kbd></li>
+      <li><span>Descer</span><kbd>↓</kbd></li>
+      <li><span>Queda total</span><kbd>Espaço</kbd></li>
+      <li><span>Pausar</span><kbd>P</kbd></li>
+    </ul>
+    <p class="tip"><b>Dica</b><span id="tip"></span></p>
+  </section>
+
+  <div class="touch">
+    <button data-a="l" aria-label="Esquerda">◀</button>
+    <button data-a="cw" aria-label="Girar">⟳</button>
+    <button data-a="r" aria-label="Direita">▶</button>
+    <button data-a="d" aria-label="Descer">▼</button>
+    <button data-a="hd">Queda</button>
+    <button data-a="hold">Hold</button>
+    <button data-a="p" style="grid-column:1/-1">Pausar</button>
+  </div>
+</main>
+
+<!-- Menus -->
+<div class="menu-screen" id="mainMenu">
+  <div class="menu-card">
+    <h2 id="menuLogo"></h2>
+    <p class="sub">Versão Pro · Pronta para o mercado</p>
+    <div class="modes">
+      <div class="mode-btn" data-mode="classic">
+        <strong>Clássico</strong>
+        <span>10 níveis · 10.000 pontos para zerar</span>
+      </div>
+      <div class="mode-btn" data-mode="sprint">
+        <strong>Sprint 40</strong>
+        <span>Limpe 40 linhas o mais rápido possível</span>
+      </div>
+      <div class="mode-btn" data-mode="ultra">
+        <strong>Ultra 2 min</strong>
+        <span>Faça o máximo de pontos em 120 segundos</span>
+      </div>
+    </div>
+    <div class="footer-btns">
+      <button class="small-btn secondary" id="btnSettings">Config</button>
+      <button class="small-btn secondary" id="btnAch">Conquistas</button>
+      <button class="small-btn ghost" id="btnStats">Stats</button>
+    </div>
+  </div>
+</div>
+
+<div class="menu-screen" id="settingsMenu" hidden>
+  <div class="menu-card">
+    <h2>Configurações</h2>
+    <div style="text-align:left;margin:18px 0">
+      <div class="settings-row">
+        <span>Som</span>
+        <div class="toggle on" id="togSound" data-key="sound"></div>
+      </div>
+      <div class="settings-row">
+        <span>Música</span>
+        <div class="toggle on" id="togMusic" data-key="music"></div>
+      </div>
+      <div class="settings-row">
+        <span>Tema escuro</span>
+        <div class="toggle" id="togTheme" data-key="theme"></div>
+      </div>
+      <div class="settings-row">
+        <span>Fantasma</span>
+        <div class="toggle on" id="togGhost" data-key="ghost"></div>
+      </div>
+      <div class="settings-row">
+        <span>Vibração (mobile)</span>
+        <div class="toggle on" id="togVibe" data-key="vibe"></div>
+      </div>
+    </div>
+    <button class="secondary" id="btnCloseSettings">Voltar</button>
+  </div>
+</div>
+
+<div class="menu-screen" id="achMenu" hidden>
+  <div class="menu-card">
+    <h2>Conquistas</h2>
+    <div class="ach-list" id="achList"></div>
+    <button class="secondary" id="btnCloseAch">Voltar</button>
+  </div>
+</div>
+
+<div class="menu-screen" id="statsMenu" hidden>
+  <div class="menu-card">
+    <h2>Estatísticas</h2>
+    <div id="statsBody" style="text-align:left;font-size:14px;line-height:1.7;margin:16px 0"></div>
+    <button class="secondary" id="btnCloseStats">Voltar</button>
+  </div>
+</div>
+
+<script>
+(() => {
+/* ========== CONSTANTES ========== */
+const C = 10, R = 20, S = 36;
+const $ = id => document.getElementById(id);
+const T = {
+  I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  O:[[1,1],[1,1]],
+  T:[[0,1,0],[1,1,1],[0,0,0]],
+  S:[[0,1,1],[1,1,0],[0,0,0]],
+  Z:[[1,1,0],[0,1,1],[0,0,0]],
+  J:[[1,0,0],[1,1,1],[0,0,0]],
+  L:[[0,0,1],[1,1,1],[0,0,0]]
+};
+const K = {
+  I:['#9af3ff','#2fc6dd','#0b7f95'],
+  O:['#fff0a0','#ffcc22','#b8860b'],
+  T:['#dcc0ff','#a66bff','#5b2fb3'],
+  S:['#b6ffc4','#4fdc74','#1b8a3c'],
+  Z:['#ffb3bd','#ff5368','#b01e36'],
+  J:['#b3c8ff','#5584ff','#2a4bb8'],
+  L:['#ffd0a0','#ff9433','#b85a0c']
+};
+const TIPS = [
+  'A peça fantasma mostra exatamente onde ela vai cair.',
+  'Segure a peça I com C e use no momento certo para um Tetris.',
+  'Back-to-back Tetris dá bônus de pontos.',
+  'No modo Sprint, priorize velocidade e limpeza de 4 linhas.',
+  'Evite buracos. Peças S e Z encaixam melhor em degraus.',
+  'Olhe sempre a próxima peça antes de decidir.',
+  'Uma pilha baixa e plana dá mais tempo quando a velocidade sobe.'
+];
+const ACH = [
+  {id:'first_clear', name:'Primeira limpeza', desc:'Limpe pelo menos 1 linha', icon:'🧹'},
+  {id:'tetris', name:'Tetris!', desc:'Limpe 4 linhas de uma vez', icon:'💥'},
+  {id:'b2b', name:'Back-to-Back', desc:'Faça 2 Tetris seguidos', icon:'🔥'},
+  {id:'level5', name:'Nível 5', desc:'Alcance o nível 5 no Clássico', icon:'5️⃣'},
+  {id:'level10', name:'Zerar o jogo', desc:'Complete os 10 níveis', icon:'🏆'},
+  {id:'sprint40', name:'Sprinter', desc:'Termine o Sprint 40', icon:'⏱️'},
+  {id:'ultra5k', name:'Ultra 5K', desc:'Faça 5.000 pontos no Ultra', icon:'⚡'},
+  {id:'combo3', name:'Combo x3', desc:'Faça um combo de 3 limpezas', icon:'🔗'},
+  {id:'hold_master', name:'Mestre do Hold', desc:'Use o Hold 20 vezes numa partida', icon:'✋'},
+  {id:'no_hold', name:'Puro', desc:'Termine o Sprint sem usar Hold', icon:'🧘'}
+];
+
+/* ========== ESTADO ========== */
+let b, cur, nxt, hold = null, canHold = true;
+let bag = [], score = 0, lines = 0, level = 1, best = 0;
+let st = 'menu', last = 0, acc = 0, clr = null, tipN = 0;
+let conf = [], particles = [];
+let mode = 'classic', combo = 0, b2b = false, holdCount = 0;
+let startTime = 0, elapsed = 0, timerId = null;
+let settings = { sound: true, music: true, theme: 'auto', ghost: true, vibe: true };
+let stats = { games: 0, lines: 0, tetris: 0, bestClassic: 0, bestSprint: 9999, bestUltra: 0 };
+let unlocked = {};
+let audioCtx = null, musicOsc = null, musicGain = null, musicPlaying = false;
+
+/* ========== PERSISTÊNCIA ========== */
+try {
+  const s = JSON.parse(localStorage.getItem('tetris-pro-settings') || '{}');
+  Object.assign(settings, s);
+  const stt = JSON.parse(localStorage.getItem('tetris-pro-stats') || '{}');
+  Object.assign(stats, stt);
+  unlocked = JSON.parse(localStorage.getItem('tetris-pro-ach') || '{}');
+  best = +localStorage.getItem('tetris-best') || stats.bestClassic || 0;
+} catch(e) {}
+
+function saveAll() {
+  try {
+    localStorage.setItem('tetris-pro-settings', JSON.stringify(settings));
+    localStorage.setItem('tetris-pro-stats', JSON.stringify(stats));
+    localStorage.setItem('tetris-pro-ach', JSON.stringify(unlocked));
+    localStorage.setItem('tetris-best', best);
+  } catch(e) {}
+}
+
+/* ========== ÁUDIO (Web Audio API) ========== */
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function beep(freq, dur = 0.08, type = 'square', vol = 0.08, slide = 0) {
+  if (!settings.sound) return;
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (slide) o.frequency.linearRampToValueAtTime(freq + slide, audioCtx.currentTime + dur);
+  g.gain.setValueAtTime(vol, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + dur);
+}
+
+function sfx(name) {
+  if (!settings.sound) return;
+  const map = {
+    move: () => beep(180, 0.04, 'square', 0.04),
+    rotate: () => beep(320, 0.06, 'triangle', 0.06),
+    soft: () => beep(140, 0.05, 'square', 0.05),
+    hard: () => { beep(90, 0.12, 'sawtooth', 0.09, -40); setTimeout(() => beep(60, 0.08, 'square', 0.06), 40); },
+    lock: () => beep(110, 0.07, 'square', 0.07),
+    clear: () => { beep(440, 0.1, 'triangle', 0.08); setTimeout(() => beep(660, 0.12, 'triangle', 0.07), 60); },
+    tetris: () => {
+      [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.12, 'triangle', 0.09), i * 70));
+    },
+    level: () => { beep(400, 0.1); setTimeout(() => beep(600, 0.15, 'triangle', 0.1), 100); },
+    hold: () => beep(260, 0.08, 'sine', 0.07),
+    over: () => { beep(200, 0.2, 'sawtooth', 0.1, -80); setTimeout(() => beep(100, 0.3, 'sawtooth', 0.08), 150); },
+    win: () => { [523,659,784,1046,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.15,'triangle',0.1),i*90)); },
+    click: () => beep(500, 0.04, 'square', 0.05)
+  };
+  map[name]?.();
+}
+
+function startMusic() {
+  if (!settings.music || musicPlaying) return;
+  ensureAudio();
+  musicGain = audioCtx.createGain();
+  musicGain.gain.value = 0.035;
+  musicGain.connect(audioCtx.destination);
+  const notes = [262, 294, 330, 349, 392, 440, 494, 523];
+  let step = 0;
+  function tick() {
+    if (!musicPlaying || !settings.music) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = notes[step % notes.length] * (step % 16 < 8 ? 1 : 0.5);
+    g.gain.setValueAtTime(0.04, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+    o.connect(g); g.connect(musicGain);
+    o.start(); o.stop(audioCtx.currentTime + 0.2);
+    step++;
+    setTimeout(tick, 220);
+  }
+  musicPlaying = true;
+  tick();
+}
+
+function stopMusic() {
+  musicPlaying = false;
+}
+
+/* ========== HELPERS ========== */
+const blank = () => Array.from({ length: R }, () => Array(C).fill(0));
+const rr = (c, x, y, w, h, r) => {
+  c.beginPath();
+  if (c.roundRect) c.roundRect(x, y, w, h, r);
+  else c.rect(x, y, w, h);
+};
+const each = (m, f) => m.forEach((r, j) => r.forEach((v, i) => v && f(i, j)));
+const rot = (m, d) => d > 0
+  ? m[0].map((_, i) => m.map(r => r[i]).reverse())
+  : m[0].map((_, i) => m.map(r => r[r.length - 1 - i]));
+const hit = (m, x, y) => m.some((r, j) => r.some((v, i) =>
+  v && (x + i < 0 || x + i >= C || y + j >= R || (y + j >= 0 && b[y + j][x + i]))
+));
+const ms = () => Math.round(800 * Math.pow(0.78, level - 1));
+const mv = (dx, dy) => {
+  if (!hit(cur.m, cur.x + dx, cur.y + dy)) {
+    cur.x += dx; cur.y += dy; return 1;
+  }
+  return 0;
+};
+function rt(d) {
+  const m = rot(cur.m, d);
+  for (const k of [0, -1, 1, -2, 2]) {
+    if (!hit(m, cur.x + k, cur.y)) {
+      cur.m = m; cur.x += k; sfx('rotate'); return;
+    }
+  }
+}
+
+function draw7() {
+  if (!bag.length) {
+    bag = Object.keys(T);
+    for (let i = 6; i > 0; i--) {
+      const j = Math.random() * (i + 1) | 0;
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+  }
+  return bag.pop();
+}
+
+/* ========== RENDER ========== */
+const cv = $('b'), cx = cv.getContext('2d');
+const nx = $('n').getContext('2d');
+const hx = $('h').getContext('2d');
+cv.width = C * S; cv.height = R * S;
+
+function blk(c, x, y, s, t, a = 1) {
+  const [l, m, d] = K[t], p = s * 0.1;
+  c.save(); c.globalAlpha = a;
+  c.fillStyle = d;
+  rr(c, x + 1, y + 1, s - 2, s - 2, s * 0.22); c.fill();
+  const g = c.createLinearGradient(0, y, 0, y + s);
+  g.addColorStop(0, l); g.addColorStop(0.55, m); g.addColorStop(1, m);
+  c.fillStyle = g;
+  rr(c, x + 1 + p, y + 1 + p * 0.6, s - 2 - 2 * p, s - 2 - p * 1.8, s * 0.16); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.4)';
+  rr(c, x + s * 0.22, y + s * 0.18, s * 0.32, s * 0.09, s * 0.04); c.fill();
+  c.restore();
+}
+
+function drawMini(ctx, piece, size = 120) {
+  ctx.clearRect(0, 0, size, size);
+  if (!piece) return;
+  const c = [];
+  each(T[piece], (i, j) => c.push([i, j]));
+  const xs = c.map(a => a[0]), ys = c.map(a => a[1]);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0 + 1, h = Math.max(...ys) - y0 + 1;
+  const s = Math.min(26, Math.floor((size - 16) / Math.max(w, h)));
+  const ox = (size - w * s) / 2 - x0 * s;
+  const oy = (size - h * s) / 2 - y0 * s;
+  c.forEach(([i, j]) => blk(ctx, ox + i * s, oy + j * s, s, piece));
+}
+
+function spawnParticles(rows) {
+  rows.forEach(y => {
+    for (let i = 0; i < 18; i++) {
+      particles.push({
+        x: Math.random() * C * S,
+        y: y * S + S / 2,
+        vx: (Math.random() - 0.5) * 6,
+        vy: (Math.random() - 0.8) * 5,
+        life: 1,
+        c: K['IOTSZJL'[Math.random() * 7 | 0]][1],
+        s: 3 + Math.random() * 4
+      });
+    }
+  });
+}
+
+function render() {
+  const W = C * S, H = R * S;
+  cx.fillStyle = '#0e0a24';
+  cx.fillRect(0, 0, W, H);
+  cx.fillStyle = 'rgba(255,255,255,.03)';
+  for (let y = 0; y < R; y++)
+    for (let x = 0; x < C; x++)
+      if ((x + y) % 2 === 0) cx.fillRect(x * S, y * S, S, S);
+
+  b.forEach((r, y) => r.forEach((v, x) => v && blk(cx, x * S, y * S, S, v)));
+
+  if (cur && (st === 'play' || st === 'pause')) {
+    if (settings.ghost) {
+      let gy = cur.y;
+      while (!hit(cur.m, cur.x, gy + 1)) gy++;
+      each(cur.m, (i, j) => {
+        cx.save();
+        cx.strokeStyle = cx.fillStyle = K[cur.t][1];
+        cx.lineWidth = 2;
+        rr(cx, (cur.x + i) * S + 4, (gy + j) * S + 4, S - 8, S - 8, 6);
+        cx.globalAlpha = 0.75; cx.stroke();
+        cx.globalAlpha = 0.12; cx.fill();
+        cx.restore();
+      });
+    }
+    cx.save();
+    cx.shadowColor = K[cur.t][1];
+    cx.shadowBlur = 14;
+    each(cur.m, (i, j) => cur.y + j >= 0 && blk(cx, (cur.x + i) * S, (cur.y + j) * S, S, cur.t));
+    cx.restore();
+  }
+
+  if (clr) {
+    const alpha = Math.max(0, 1 - clr.t / 220);
+    cx.fillStyle = `rgba(255,255,255,${alpha})`;
+    clr.rows.forEach(y => cx.fillRect(0, y * S, W, S));
+  }
+
+  // particles
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.025;
+    if (p.life <= 0) return false;
+    cx.globalAlpha = p.life;
+    cx.fillStyle = p.c;
+    cx.fillRect(p.x, p.y, p.s, p.s);
+    cx.globalAlpha = 1;
+    return true;
+  });
+
+  if (st === 'win') {
+    conf.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.a += p.vr;
+      if (p.y > H) p.y = -10;
+      cx.save();
+      cx.translate(p.x, p.y); cx.rotate(p.a);
+      cx.fillStyle = p.c;
+      cx.fillRect(-p.w / 2, -p.w / 4, p.w, p.w / 2);
+      cx.restore();
+    });
+  }
+}
+
+function ui() {
+  if (score > best && mode === 'classic') best = score;
+  $('sc').textContent = score.toLocaleString('pt-BR');
+  $('bs').textContent = (mode === 'classic' ? best : (mode === 'sprint' ? (stats.bestSprint < 9999 ? formatTime(stats.bestSprint) : '—') : stats.bestUltra.toLocaleString('pt-BR'))).toString();
+  $('lv').textContent = level;
+  $('ln').textContent = lines;
+
+  const modeNames = { classic: 'Clássico', sprint: 'Sprint 40', ultra: 'Ultra 2 min' };
+  $('modeTag').textContent = modeNames[mode];
+
+  if (mode === 'classic') {
+    $('progWrap').style.display = '';
+    const left = Math.max(0, level * 1000 - score);
+    $('pg').style.width = ((1000 - left) / 10) + '%';
+    $('pl').textContent = level < 10
+      ? `Faltam ${left.toLocaleString('pt-BR')} pts p/ nível ${level + 1}`
+      : 'Último nível — zere o jogo!';
+  } else if (mode === 'sprint') {
+    $('progWrap').style.display = '';
+    const pct = Math.min(100, (lines / 40) * 100);
+    $('pg').style.width = pct + '%';
+    $('pl').textContent = `${lines}/40 linhas · ${formatTime(elapsed)}`;
+  } else {
+    $('progWrap').style.display = '';
+    const left = Math.max(0, 120000 - elapsed);
+    $('pg').style.width = ((120000 - left) / 1200) + '%';
+    $('pl').textContent = formatTime(left) + ' restantes';
+  }
+
+  drawMini(nx, nxt);
+  drawMini(hx, hold);
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m + ':' + String(sec).padStart(2, '0');
+}
+
+function toast(t) {
+  if (!t) return;
+  const e = $('toast');
+  e.textContent = t;
+  e.classList.remove('pop');
+  void e.offsetWidth;
+  e.classList.add('pop');
+}
+
+function showCombo(n) {
+  const el = $('comboBadge');
+  if (n < 2) { el.classList.remove('show'); return; }
+  el.textContent = `COMBO x${n}`;
+  el.classList.add('show');
+}
+
+/* ========== OVERLAYS ========== */
+function ov(k) {
+  const o = $('ov');
+  o.hidden = !k;
+  o.classList.toggle('win', k === 'win');
+  if (!k) return;
+
+  const B = (t, h) => `<button>${t}</button><p class="s">${h}</p>`;
+  const scoreLine = `Você fez <b>${score.toLocaleString('pt-BR')}</b> pontos`;
+  const rec = score > (mode === 'classic' ? best : 0) ? ' · Novo recorde!' : '';
+
+  const html = {
+    pause: `<h2>Pausado</h2>${B('Continuar', 'Tecla P ou toque')}`,
+    over: `<h2>Fim de jogo</h2><p>${scoreLine}${rec}</p>
+           <div class="btn-row"><button>Jogar de novo</button><button class="secondary" data-menu>Menu</button></div>`,
+    win: `<h2>Parabéns!</h2><p>Você zerou o Tetris com ${score.toLocaleString('pt-BR')} pontos.${rec}</p>
+          <div class="btn-row"><button>Jogar de novo</button><button class="secondary" data-menu>Menu</button></div>`,
+    sprintWin: `<h2>Sprint concluído!</h2><p>Tempo: <b>${formatTime(elapsed)}</b></p>
+                <div class="btn-row"><button>Jogar de novo</button><button class="secondary" data-menu>Menu</button></div>`,
+    ultraEnd: `<h2>Tempo esgotado!</h2><p>${scoreLine}</p>
+               <div class="btn-row"><button>Jogar de novo</button><button class="secondary" data-menu>Menu</button></div>`
+  };
+  o.innerHTML = html[k] || '';
+}
+
+/* ========== LÓGICA DO JOGO ========== */
+function spawn() {
+  const t = nxt;
+  nxt = draw7();
+  const m = T[t].map(r => [...r]);
+  cur = { t, m, x: (C - m[0].length) >> 1, y: t === 'I' ? -1 : 0 };
+  canHold = true;
+  $('bw').style.setProperty('--glow', K[t][1]);
+  if (hit(cur.m, cur.x, cur.y)) gameOver();
+}
+
+function doHold() {
+  if (!canHold || !cur || st !== 'play') return;
+  sfx('hold');
+  holdCount++;
+  const t = cur.t;
+  if (hold) {
+    cur = { t: hold, m: T[hold].map(r => [...r]), x: (C - T[hold][0].length) >> 1, y: hold === 'I' ? -1 : 0 };
+    hold = t;
+  } else {
+    hold = t;
+    spawn();
+  }
+  canHold = false;
+  drawMini(hx, hold);
+  if (hit(cur.m, cur.x, cur.y)) gameOver();
+}
+
+function lock() {
+  let out = 0;
+  each(cur.m, (i, j) => {
+    const y = cur.y + j;
+    if (y < 0) out = 1;
+    else b[y][cur.x + i] = cur.t;
+  });
+  if (out) return gameOver();
+  sfx('lock');
+  if (++tipN % 6 === 0) $('tip').textContent = TIPS[(tipN / 6 | 0) % TIPS.length];
+
+  const rows = [];
+  b.forEach((r, y) => r.every(Boolean) && rows.push(y));
+  if (rows.length) {
+    clr = { rows, t: 0 };
+    st = 'clear';
+    cur = null;
+    spawnParticles(rows);
+    if (settings.vibe && navigator.vibrate) navigator.vibrate(rows.length >= 4 ? [40, 30, 60] : 25);
+  } else {
+    combo = 0;
+    showCombo(0);
+    spawn();
+  }
+}
+
+function fin() {
+  const n = clr.rows.length;
+  const wasB2B = b2b && n === 4;
+  clr.rows.forEach(y => { b.splice(y, 1); b.unshift(Array(C).fill(0)); });
+
+  let pts = [0, 100, 300, 500, 800][n] * level;
+  if (wasB2B) pts = Math.floor(pts * 1.5);
+  if (combo > 0) pts += 50 * combo * level;
+  score += pts;
+  lines += n;
+  stats.lines += n;
+  if (n === 4) { stats.tetris++; b2b = true; } else b2b = false;
+  combo++;
+  showCombo(combo);
+
+  const oldLv = level;
+  if (mode === 'classic') level = Math.min(10, 1 + (score / 1000 | 0));
+  else level = Math.min(15, 1 + (lines / 10 | 0));
+
+  clr = null;
+  ui();
+
+  if (n === 4) sfx('tetris');
+  else sfx('clear');
+
+  if (level > oldLv) { sfx('level'); toast('Nível ' + level); }
+  else {
+    const names = ['', 'Simples', 'Dupla', 'Tripla', 'Tetris!'];
+    let msg = names[n];
+    if (wasB2B) msg = 'B2B ' + msg;
+    if (combo > 1) msg += ` · Combo x${combo}`;
+    toast(msg);
+  }
+
+  checkAchievements(n);
+
+  if (mode === 'classic' && score >= 10000) return win();
+  if (mode === 'sprint' && lines >= 40) return sprintWin();
+
+  st = 'play';
+  acc = 0;
+  spawn();
+  ui();
+}
+
+function checkAchievements(n) {
+  const unlock = id => {
+    if (unlocked[id]) return;
+    unlocked[id] = Date.now();
+    saveAll();
+    toast('🏆 ' + ACH.find(a => a.id === id).name);
+  };
+  if (n >= 1) unlock('first_clear');
+  if (n === 4) unlock('tetris');
+  if (b2b && n === 4) unlock('b2b');
+  if (mode === 'classic' && level >= 5) unlock('level5');
+  if (mode === 'classic' && score >= 10000) unlock('level10');
+  if (combo >= 3) unlock('combo3');
+  if (holdCount >= 20) unlock('hold_master');
+}
+
+function gameOver() {
+  st = 'over';
+  stopMusic();
+  sfx('over');
+  stats.games++;
+  if (mode === 'classic' && score > stats.bestClassic) {
+    stats.bestClassic = score;
+    best = score;
+  }
+  if (mode === 'ultra' && score > stats.bestUltra) stats.bestUltra = score;
+  saveAll();
+  ov('over');
+}
+
+function win() {
+  st = 'win';
+  cur = null;
+  stopMusic();
+  sfx('win');
+  unlocked.level10 = Date.now();
+  if (score > stats.bestClassic) { stats.bestClassic = score; best = score; }
+  stats.games++;
+  saveAll();
+  conf = matchMedia('(prefers-reduced-motion:reduce)').matches ? [] :
+    Array.from({ length: 70 }, () => ({
+      x: Math.random() * C * S, y: -Math.random() * R * S,
+      vx: (Math.random() - 0.5) * 2.5, vy: 2 + Math.random() * 3,
+      a: 0, vr: (Math.random() - 0.5) * 0.3,
+      w: 7 + Math.random() * 8,
+      c: K['IOTSZJL'[Math.random() * 7 | 0]][1]
+    }));
+  $('bw').style.setProperty('--glow', '#ffcc22');
+  ov('win');
+}
+
+function sprintWin() {
+  st = 'win';
+  cur = null;
+  stopMusic();
+  sfx('win');
+  unlocked.sprint40 = Date.now();
+  if (holdCount === 0) unlocked.no_hold = Date.now();
+  if (elapsed < stats.bestSprint) stats.bestSprint = elapsed;
+  stats.games++;
+  saveAll();
+  ov('sprintWin');
+}
+
+function ultraEnd() {
+  st = 'over';
+  stopMusic();
+  sfx('over');
+  if (score >= 5000) unlocked.ultra5k = Date.now();
+  if (score > stats.bestUltra) stats.bestUltra = score;
+  stats.games++;
+  saveAll();
+  ov('ultraEnd');
+}
+
+function start(m = mode) {
+  mode = m;
+  b = blank();
+  score = lines = 0; level = 1;
+  bag = []; clr = null; conf = []; particles = [];
+  hold = null; canHold = true; holdCount = 0;
+  combo = 0; b2b = false; acc = 0;
+  showCombo(0);
+  nxt = draw7();
+  st = 'play';
+  ov('');
+  startTime = performance.now();
+  elapsed = 0;
+  if (timerId) clearInterval(timerId);
+  if (mode === 'ultra' || mode === 'sprint') {
+    timerId = setInterval(() => {
+      if (st !== 'play') return;
+      elapsed = performance.now() - startTime;
+      if (mode === 'ultra' && elapsed >= 120000) ultraEnd();
+      ui();
+    }, 200);
+  }
+  spawn();
+  ui();
+  startMusic();
+  $('mainMenu').hidden = true;
+  $('tip').textContent = TIPS[0];
+}
+
+function pause() {
+  if (st === 'play') {
+    st = 'pause';
+    ov('pause');
+    stopMusic();
+  } else if (st === 'pause') {
+    st = 'play';
+    ov('');
+    startMusic();
+    if (mode !== 'classic') startTime = performance.now() - elapsed;
+  }
+}
+
+/* ========== INPUT ========== */
+const A = {
+  l: () => { if (mv(-1, 0)) sfx('move'); },
+  r: () => { if (mv(1, 0)) sfx('move'); },
+  d: () => { if (mv(0, 1)) { acc = 0; sfx('soft'); } },
+  cw: () => rt(1),
+  ccw: () => rt(-1),
+  hd: () => { while (mv(0, 1)); sfx('hard'); lock(); acc = 0; $('bw').classList.remove('shake'); void $('bw').offsetWidth; $('bw').classList.add('shake'); },
+  hold: () => doHold()
+};
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft','arrowright','arrowdown','arrowup',' '].includes(k)) e.preventDefault();
+  if (k === 'enter') {
+    if (st === 'ready' || st === 'over' || st === 'win') start();
+    else if (st === 'pause') pause();
+    return;
+  }
+  if (k === 'p' || k === 'escape') {
+    if (st === 'play' || st === 'pause') pause();
+    return;
+  }
+  if (st !== 'play') return;
+  const map = {
+    arrowleft: 'l', arrowright: 'r', arrowdown: 'd',
+    arrowup: 'cw', x: 'cw', z: 'ccw', ' ': 'hd', c: 'hold', shift: 'hold'
+  };
+  const a = map[k];
+  if (a && !(e.repeat && (a === 'cw' || a === 'ccw' || a === 'hd' || a === 'hold'))) A[a]();
+});
+
+$('ov').addEventListener('click', e => {
+  if (e.target.closest('[data-menu]')) {
+    showMainMenu();
+    return;
+  }
+  if (e.target.closest('button')) {
+    if (st === 'pause') pause();
+    else if (st === 'over' || st === 'win') start();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && st === 'play') pause();
+});
+
+document.querySelectorAll('.touch button').forEach(el => {
+  const a = el.dataset.a;
+  let t, iv;
+  const stop = () => { clearTimeout(t); clearInterval(iv); };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (a === 'p') { pause(); return; }
+    if (st !== 'play') return;
+    A[a]?.();
+    if ('lrd'.includes(a)) {
+      t = setTimeout(() => {
+        iv = setInterval(() => st === 'play' && A[a](), 80);
+      }, 180);
+    }
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, stop));
+});
+
+/* ========== MENUS ========== */
+function showMainMenu() {
+  st = 'menu';
+  stopMusic();
+  if (timerId) clearInterval(timerId);
+  $('mainMenu').hidden = false;
+  $('ov').hidden = true;
+  updateThemeUI();
+}
+
+$('menuLogo').innerHTML = $('logo').innerHTML = [['T','Z'],['E','L'],['T','O'],['R','S'],['I','I'],['S','T']]
+  .map(([c, k]) => `<span style="color:${K[k][1]}">${c}</span>`).join('') +
+  ' <span style="font-size:14px;opacity:.7">PRO</span>';
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    sfx('click');
+    start(btn.dataset.mode);
+  });
+});
+
+$('btnSettings').onclick = () => { sfx('click'); $('settingsMenu').hidden = false; };
+$('btnCloseSettings').onclick = () => { sfx('click'); $('settingsMenu').hidden = true; };
+$('btnAch').onclick = () => { sfx('click'); renderAch(); $('achMenu').hidden = false; };
+$('btnCloseAch').onclick = () => { sfx('click'); $('achMenu').hidden = true; };
+$('btnStats').onclick = () => { sfx('click'); renderStats(); $('statsMenu').hidden = false; };
+$('btnCloseStats').onclick = () => { sfx('click'); $('statsMenu').hidden = true; };
+
+function updateThemeUI() {
+  const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme:dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  $('togTheme').classList.toggle('on', settings.theme === 'dark' || (settings.theme === 'auto' && dark));
+  $('togSound').classList.toggle('on', settings.sound);
+  $('togMusic').classList.toggle('on', settings.music);
+  $('togGhost').classList.toggle('on', settings.ghost);
+  $('togVibe').classList.toggle('on', settings.vibe);
+}
+
+document.querySelectorAll('.toggle').forEach(el => {
+  el.addEventListener('click', () => {
+    const key = el.dataset.key;
+    if (key === 'theme') {
+      settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
+    } else {
+      settings[key] = !settings[key];
+    }
+    if (key === 'music' && !settings.music) stopMusic();
+    if (key === 'music' && settings.music && st === 'play') startMusic();
+    saveAll();
+    updateThemeUI();
+    sfx('click');
+  });
+});
+
+function renderAch() {
+  $('achList').innerHTML = ACH.map(a => {
+    const ok = unlocked[a.id];
+    return `<div class="ach-item ${ok ? '' : 'locked'}">
+      <div class="ach-icon">${ok ? a.icon : '🔒'}</div>
+      <div><b>${a.name}</b><br><span style="color:var(--mut);font-size:12px">${a.desc}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  $('statsBody').innerHTML = `
+    <div>Partidas jogadas: <b>${stats.games}</b></div>
+    <div>Linhas totais: <b>${stats.lines.toLocaleString('pt-BR')}</b></div>
+    <div>Tetris feitos: <b>${stats.tetris}</b></div>
+    <hr style="border:0;border-top:1px solid var(--bd);margin:10px 0">
+    <div>Melhor Clássico: <b>${stats.bestClassic.toLocaleString('pt-BR')}</b></div>
+    <div>Melhor Sprint: <b>${stats.bestSprint < 9999 ? formatTime(stats.bestSprint) : '—'}</b></div>
+    <div>Melhor Ultra: <b>${stats.bestUltra.toLocaleString('pt-BR')}</b></div>
+  `;
+}
+
+/* ========== LOOP ========== */
+function loop(t) {
+  const dt = Math.min(t - last, 100);
+  last = t;
+  if (st === 'play') {
+    acc += dt;
+    if (acc >= ms()) {
+      acc = 0;
+      if (!mv(0, 1)) lock();
+    }
+  } else if (st === 'clear') {
+    clr.t += dt;
+    if (clr.t > 220) fin();
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ========== INIT ========== */
+b = blank();
+nxt = draw7();
+drawMini(nx, nxt);
+drawMini(hx, null);
+ui();
+$('tip').textContent = TIPS[0];
+updateThemeUI();
+showMainMenu();
+requestAnimationFrame(loop);
+
+// unlock audio on first interaction
+['pointerdown', 'keydown'].forEach(ev => {
+  addEventListener(ev, () => ensureAudio(), { once: true });
+});
+})();
+</script>
+</body>
+</html>
